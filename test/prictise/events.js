@@ -14,7 +14,7 @@
 			obj.cnt++;
 			console.log(a+'--'+b);
 		});
-		obj.on('a', function(a, b, c, d, e){// test fork push
+		obj.on('a', function(a, b, c, d, e, f){// test fork push
 			obj.cnt++;
 		});
 		obj.trigger('a', 'AA', 'BB');
