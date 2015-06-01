@@ -5,13 +5,13 @@
   test("on and trigger", 2, function() {
     var obj = { counter: 0 };
     _.extend(obj,Backbone.Events);
-    obj.on('a ', function() { obj.counter += 1; });
-    obj.trigger('a');
+    obj.on('event', function() { obj.counter += 1; });
+    obj.trigger('event');
     equal(obj.counter,1,'counter should be incremented.');
-    obj.trigger('a');
-    obj.trigger('a');
-    obj.trigger('a');
-    obj.trigger('a');
+    obj.trigger('event');
+    obj.trigger('event');
+    obj.trigger('event');
+    obj.trigger('event');
     equal(obj.counter, 5, 'counter should be incremented five times.');
   });
 
