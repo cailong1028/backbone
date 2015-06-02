@@ -81,5 +81,77 @@
 		}
 	};
 
+	//Backbone Model
+	//----------------------------------
+	var Model = Backbone.Model = function(attributes, options){
+		attributes = attributes || {};
+		options = options || {};
+		this.attributes = this.attributes || {};
+		this.cid = _.uniqueId(this.cidPrefix);
+		this.set(attributes, options);
+		this.changed = {};
+		this.initialize.apply(this, arguments);
+	};
+
+	_.extend(Model.prototype, Events, {
+		cidPrefix: 'c',
+		initialize:function(){
+		},
+		get: function(name){
+			return this.attributes[name];
+		},
+		set: function(key, val, options){
+			if(!key) return this;
+			var attrs, prevAttrs, currAttrs;
+			if(typeof key === 'object'){
+				attrs = key;
+				key = options;
+			}else{
+				(attrs = {})[key] = val;
+			}
+			if(!this._validate(attrs)) return false;
+			this.changed = {};
+			prevAttrs = this.attributes;
+			this.attributes = currAttrs = attrs;
+			for(var key in currAttrs){
+				if(currAttrs[key] !== prevAttrs[key]){
+					this.changed[key] = currAttrs[key];
+				}
+			}
+			this.trigger('change', this.changed);
+			return this;
+		},
+		fetch: function(){},
+		save: function(){},
+		destroy: function(){},
+		_validate: function(attrs){
+			if(!this.validate) return true;
+			var validateError = this.validateError = this.validate(attrs);
+			if(validateError) {
+				this.trigger('invalide', validateError);
+				return false;
+			}
+			return true;
+		}
+	});
+
+	//Collection, Model, Router, View extend
+	//------------------------------------------------------
+	var extend = function(protoProps){
+		protoProps = protoProps || {};
+		var parent = this;
+		var child = function(){
+			parent.apply(this, arguments);
+		};
+		child.prototype = parent.prototype;
+		_.extend(child.prototype, protoProps);
+		return child;
+	};
+
+	Model.extend = extend;
+
+	Backbone.ajax = function(params){
+		Backbone.$.ajax.apply(this, params);
+	};
 	return Backbone;
 });
