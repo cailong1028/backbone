@@ -85,7 +85,7 @@
 	//----------------------------------
 	var Model = Backbone.Model = function(attributes, options){
 		attributes = attributes || {};
-		options = options || {};
+		this.options = options = options || {};
 		this.attributes = this.attributes || {};
 		this.cid = _.uniqueId(this.cidPrefix);
 		this.set(attributes, options);
@@ -95,10 +95,15 @@
 
 	_.extend(Model.prototype, Events, {
 		cidPrefix: 'c',
+		idAttribute: 'id',
 		initialize:function(){
 		},
 		get: function(name){
 			return this.attributes[name];
+		},
+		url: function(){
+			//TODO should use stand path
+			return  _.result(this, 'urlRoot')+'/'+this.get(this.idAttribute);
 		},
 		set: function(key, val, options){
 			if(!key) return this;
@@ -109,11 +114,12 @@
 			}else{
 				(attrs = {})[key] = val;
 			}
-			if(!this._validate(attrs)) return false;
 			this.changed = {};
-			prevAttrs = this.attributes;
-			this.attributes = currAttrs = attrs;
-			for(var key in currAttrs){
+			prevAttrs = _.clone(this.attributes);//clone
+			currAttrs = _.extend({}, prevAttrs, attrs);//clone
+			if(!this._validate(currAttrs)) return false;
+			this.attributes = currAttrs;
+			for(var key in attrs){
 				if(currAttrs[key] !== prevAttrs[key]){
 					this.changed[key] = currAttrs[key];
 				}
@@ -121,7 +127,28 @@
 			this.trigger('change', this.changed);
 			return this;
 		},
-		fetch: function(){},
+		toJSON: function(){
+			return _.clone(this.attributes);
+		},
+		fetch: function(options){
+			//var dtd = new $.Deferred, self = this;
+			return Backbone.sync('GET', this, options);
+			/*if(options.wait){
+				xhr.done(function(data){
+					self.set(self.fetchParse(data));
+					dtd.resolve();
+				}).fail(function(){
+					dtd.reject();
+				});
+			}
+			setTimeout(function(){
+				dtd.resolve();
+			}, 0);
+			return dtd.promise();*/
+		},
+		fetchParse: function(data){
+			return data;
+		},
 		save: function(){},
 		destroy: function(){},
 		_validate: function(attrs){
@@ -141,17 +168,43 @@
 		protoProps = protoProps || {};
 		var parent = this;
 		var child = function(){
-			parent.apply(this, arguments);
+			parent.apply(this, Array.prototype.slice.call(arguments));
 		};
-		child.prototype = parent.prototype;
+		child.prototype = _.clone(parent.prototype);
 		_.extend(child.prototype, protoProps);
 		return child;
 	};
 
 	Model.extend = extend;
 
-	Backbone.ajax = function(params){
-		Backbone.$.ajax.apply(this, params);
+	Backbone.sync = function(method, model, options){
+		options = options || {};
+		//method: post, put, patch, get, delete
+		var params = {
+			dataType: 'json',
+			type: method,
+			contentType: 'application/json'
+		};
+		//例如data; model.fetch({data: {id: 'aaa'}})
+		_.extend(params, model.options, options);
+
+		if(method === 'POST' || method === 'PATCH'){
+			params.data = model.toJSON();
+		}
+		params.success = function(res){
+			if(params.wait) model.set(res);
+			model.trigger('sync');
+		};
+		if(!options.url) params.url = _.result(model, 'url') || urlError();
+		return Backbone.ajax(params);
+	};
+
+	Backbone.ajax = function(){
+		return Backbone.$.ajax.apply(Backbone.$, arguments);
+	};
+
+	var urlError = function(){
+		throw new Error('url needed');
 	};
 	return Backbone;
 });

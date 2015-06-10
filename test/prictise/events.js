@@ -12,7 +12,6 @@
 		var obj = new Obj(0);
 		obj.on('a', function(a, b){
 			obj.cnt++;
-			console.log(a+'--'+b);
 		});
 		obj.on('a', function(a, b, c, d, e, f){// test fork push
 			obj.cnt++;
