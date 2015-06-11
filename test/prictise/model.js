@@ -36,7 +36,7 @@
 	});
 
 	//异步测试使用asyncTest
-	asyncTest('model fetch test', function(){
+	asyncTest('model fetch(get) test', function(){
 		var Model2 = Backbone.Model.extend({
 			idAttribute: 'uuid',
 			urlRoot: function(){
@@ -47,18 +47,59 @@
 			uuid: '2c5f84b2-0902-11e5-8ee1-f3d2a4a7088c'
 		});
 		model2.on('change', function(){
-			console.log('执行on change');
 			equal(model2.get('name'), 'name_A');
 		});
 		model2.on('sync', function(){
-			console.log('执行on sync');
 			equal(model2.get('name'), 'name_A');
 		});
-		model2.fetch({wait: true}).done(function(res){
+		model2.fetch({data: {name: 'name_A'}, wait: true}).done(function(res){
 			//执行done
 			QUnit.start();
-			console.log('执行done');
 			equal(model2.get('name'), 'name_A');
+		});
+	});
+
+	var Model = Backbone.Model.extend({
+		urlRoot: 'model'
+	});
+	asyncTest('model create(post) test', function(){
+		var model = new Model({name: 'model1Name'});
+		model.on('change', function(){
+			equal(model.get('id'), 'server return model id');
+		});
+		model.on('sync', function(){
+			equal(model.get('id'), 'server return model id');
+		});
+		model.save({data:{sex: '男'}, wait: true}).done(function(){
+			QUnit.start();
+			equal(model.get('id'), 'server return model id');
+		}).fail(function(){
+			console.log('post fail!');
+		});
+	});
+
+	asyncTest('model update(patch) test', function(){
+		var model = new Model({id: 1, name: 'client model1Name'});
+		model.on('change', function(){
+			equal(model.get('name'), 'server return model name');
+		});
+		model.on('sync', function(){
+			equal(model.get('name'), 'server return model name');
+		});
+		model.save({data: {name: 'server return model name'}, wait: true}).done(function(){
+			QUnit.start();
+			equal(model.get('name'), 'server return model name');
+		}).fail(function(){
+			console.log('patch fail!');
+		});
+	});
+
+	asyncTest('model destory(delete) test', function(){
+		var model = new Model({id: '1'});
+		model.destroy({data:{name: 'deleted name'}, wait: true}).done(function(req){
+			QUnit.start();
+			equal(model.get('name'), 'deleted name');
+			equal(model.get('deleted'), true);
 		});
 	});
 })();

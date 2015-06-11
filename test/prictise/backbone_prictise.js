@@ -103,7 +103,8 @@
 		},
 		url: function(){
 			//TODO should use stand path
-			return  _.result(this, 'urlRoot')+'/'+this.get(this.idAttribute);
+			var id = this.get(this.idAttribute);
+			return  _.result(this, 'urlRoot')+(id ? '/'+id : '');
 		},
 		set: function(key, val, options){
 			if(!key) return this;
@@ -116,7 +117,7 @@
 			}
 			this.changed = {};
 			prevAttrs = _.clone(this.attributes);//clone
-			currAttrs = _.extend({}, prevAttrs, attrs);//clone
+			currAttrs = this.parseData(_.extend({}, prevAttrs, attrs));//clone
 			if(!this._validate(currAttrs)) return false;
 			this.attributes = currAttrs;
 			for(var key in attrs){
@@ -130,27 +131,23 @@
 		toJSON: function(){
 			return _.clone(this.attributes);
 		},
-		fetch: function(options){
-			//var dtd = new $.Deferred, self = this;
-			return Backbone.sync('GET', this, options);
-			/*if(options.wait){
-				xhr.done(function(data){
-					self.set(self.fetchParse(data));
-					dtd.resolve();
-				}).fail(function(){
-					dtd.reject();
-				});
-			}
-			setTimeout(function(){
-				dtd.resolve();
-			}, 0);
-			return dtd.promise();*/
-		},
-		fetchParse: function(data){
+		parseData: function(data){
 			return data;
 		},
-		save: function(){},
-		destroy: function(){},
+		fetch: function(options){
+			//需要设置参数
+			return Backbone.sync('GET', this, options);
+		},
+		save: function(options){
+			var type = this.isNew() ? 'POST' : 'PATCH';
+			return Backbone.sync(type, this, options);
+		},
+		destroy: function(options){
+			return Backbone.sync('DELETE', this, options);
+		},
+		isNew: function(){
+			return !this.get(this.idAttribute);
+		},
 		_validate: function(attrs){
 			if(!this.validate) return true;
 			var validateError = this.validateError = this.validate(attrs);
@@ -187,11 +184,13 @@
 		};
 		//例如data; model.fetch({data: {id: 'aaa'}})
 		_.extend(params, model.options, options);
-
-		if(method === 'POST' || method === 'PATCH'){
-			params.data = model.toJSON();
+		//GET,PATCH,DELETE时默认就是options中定义的data作为参数
+		//POST时data 需要另外处理,因为扩展params时使用的是_.extend,不是深度clone
+		if(method === 'POST' || (params.data && (method === 'PATCH' || method === 'DELETE'))){
+			params.data = JSON.stringify(_.extend({}, model.toJSON(), options.data || {}));
 		}
 		params.success = function(res){
+			res = res || {};
 			if(params.wait) model.set(res);
 			model.trigger('sync');
 		};
