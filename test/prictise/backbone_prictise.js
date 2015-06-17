@@ -117,7 +117,7 @@
 			}
 			this.changed = {};
 			prevAttrs = _.clone(this.attributes);//clone
-			currAttrs = this.parseData(_.extend({}, prevAttrs, attrs));//clone
+			currAttrs = this.parse(_.extend({}, prevAttrs, attrs));//clone
 			if(!this._validate(currAttrs)) return false;
 			this.attributes = currAttrs;
 			for(var key in attrs){
@@ -131,7 +131,7 @@
 		toJSON: function(){
 			return _.clone(this.attributes);
 		},
-		parseData: function(data){
+		parse: function(data){
 			return data;
 		},
 		fetch: function(options){
@@ -159,21 +159,107 @@
 		}
 	});
 
-	//Collection, Model, Router, View extend
+	//Backbone Collection
 	//------------------------------------------------------
+	var Collection = Backbone.Collection = function(models, options){
+		this.cid = _.uniqueId(this.cidPrefix);
+		if(!!models) this.set(models);
+		this.initialize();
+	};
+
+	_.extend(Collection.prototype, Events, {
+		cidPrefix: 'c',
+		model: Model,
+		strict: true,
+		url: function(){},
+		initialize: function(){},
+		parse: function(models){
+			return models;
+		},
+		set: function(datas){
+			var model = new this.model;
+			if(!datas) return this;
+			datas = this.parse(datas);
+			if(!_.isArray(datas)) throw new Error('Collection models should be array');
+			for(var i = 0; i < datas.length; i++){
+				if(!model._validate(datas[i]) && this.strict){
+					return false;
+				}
+			}
+			this.models = datas;
+			this.trigger('change', '');
+		},
+		//TODO
+		get: function(){
+
+		},
+		toJSON: function(){
+			return this.models.map(function(model){return model.toJSON();});
+		},
+		add: function(){
+
+		},
+		remove: function(){
+
+		},
+		shift: function(){
+
+		},
+		unshift: function(){
+
+		},
+		fetch: function(options){
+			return Backbone.sync('GET', this, options);
+		}
+	});
+
+	//Collection, Model, Router, View extend
+	1
 	var extend = function(protoProps){
 		protoProps = protoProps || {};
 		var parent = this;
 		var child = function(){
 			parent.apply(this, Array.prototype.slice.call(arguments));
 		};
-		child.prototype = _.clone(parent.prototype);
-		_.extend(child.prototype, protoProps);
+		var parentInstance = new parent;
+		for(var key in parentInstance){
+			if(Object.prototype.hasOwnProperty.call(parentInstance, key)) delete parentInstance[key];
+		}
+		//child.prototype = parentInstance;/*_.clone(parent.prototype)*/
+		_.extend(child.prototype = parentInstance, protoProps);//不要使用 _.extend(child.prototype, parentInstance, protoProps); 因为_.extend只会clone ownPrototype
 		return child;
 	};
 
-	Model.extend = extend;
+	//Backbone Dtd object
+	//-----------------------------------------------------------
+	var Dtd = Backbone.Dtd = function(){
+		this.fireChain = [function(){}];
+	};
 
+	_.extend(Dtd.prototype, Events, {
+		resolve: function(){
+			for(var i = 0; i< this.fireChain.length; i++){
+				this.fireChain[i]();
+			}
+		},
+		reject: function(){
+			//TODO
+		},
+		done: function(doneFunc){
+			if(_.isFunction(doneFunc)){
+				this.fireChain.push(doneFunc);
+			}else if(_.isArray(doneFunc)){
+				this.fireChain = this.fireChain.concat(doneFunc);
+			}
+			return this;
+		},
+		promise: function(){
+			//TODO
+			return this;
+		}
+	});
+
+	//Backbone sync
 	Backbone.sync = function(method, model, options){
 		options = options || {};
 		//method: post, put, patch, get, delete
@@ -184,14 +270,13 @@
 		};
 		//例如data; model.fetch({data: {id: 'aaa'}})
 		_.extend(params, model.options, options);
-		//GET,PATCH,DELETE时默认就是options中定义的data作为参数
-		//POST时data 需要另外处理,因为扩展params时使用的是_.extend,不是深度clone
+		//data 需要另外处理,因为扩展params时使用的是_.extend,不是深度clone
 		if(method === 'POST' || (params.data && (method === 'PATCH' || method === 'DELETE'))){
 			params.data = JSON.stringify(_.extend({}, model.toJSON(), options.data || {}));
 		}
 		params.success = function(res){
 			res = res || {};
-			if(params.wait) model.set(res);
+			if(params.wait || params.reset) model.set(res);
 			model.trigger('sync');
 		};
 		if(!options.url) params.url = _.result(model, 'url') || urlError();
@@ -205,5 +290,9 @@
 	var urlError = function(){
 		throw new Error('url needed');
 	};
+
+	//TODO
+	Dtd.extend = Collection.extend = Model.extend = extend;
+
 	return Backbone;
 });

@@ -21,9 +21,11 @@ app.use(express.static(path.join(__dirname, 'test')));
 
 var routes = require('./lib/routes/index');
 var model = require('./lib/routes/model');
+var collection = require('./lib/routes/collection');
 
 app.use('/', routes);
 app.use('/model', model);
+app.use('/collection', collection);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
