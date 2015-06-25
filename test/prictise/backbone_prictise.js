@@ -199,7 +199,7 @@
 				if(!(model = this._prepareModel(model))) throw new Error(model.validateError);
 				if(options.remove && existing){//替换
 					toRemove.push(existing);
-				}else{
+				}else if(!options.remove && (!existing || options.reset)){
 					toAdd.push(model);
 				}
 			}
