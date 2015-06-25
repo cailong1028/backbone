@@ -197,11 +197,8 @@
 				var model = models[i];
 				var existing = this.get(model);
 				if(!(model = this._prepareModel(model))) throw new Error(model.validateError);
-				if(existing){//替换
-					if(existing === model){
-						toRemove.push(existing);
-						toAdd.push(model);
-					}
+				if(options.remove && existing){//替换
+					toRemove.push(existing);
 				}else{
 					toAdd.push(model);
 				}
@@ -220,11 +217,11 @@
 				triggerEvents.remove = toRemove;
 			}
 			if(!options.remove){
-				this.models = this.models.concat(toAdd);
 				for (var i = 0; i < toAdd.length; i++) {
-					var model = toAdd[i];
-					this._byId[model.cid] = model;
-					if (model.get(model.idAttribute)) this._byId[model.idAttribute] = model;
+					var oneAdd = toAdd[i];
+					this._byId[oneAdd.cid] = oneAdd;
+					if (oneAdd.get(oneAdd.idAttribute)) this._byId[oneAdd.idAttribute] = oneAdd;
+					this.models.push(oneAdd);
 				}
 				triggerEvents.add = toAdd;
 			}
@@ -334,7 +331,8 @@
 
 	//Backbone sync
 	Backbone.sync = function(method, model, options){
-		options = options || {};
+		var _default = {wait: true};
+		options = _.extend({}, options || {});
 		//method: post, put, patch, get, delete
 		var params = {
 			dataType: 'json',
@@ -347,6 +345,7 @@
 		if(method === 'POST' || (params.data && (method === 'PATCH' || method === 'DELETE'))){
 			params.data = JSON.stringify(_.extend({}, model.toJSON(), options.data || {}));
 		}
+		_.defaults(params, _default);
 		params.success = function(res){
 			res = res || {};
 			if(params.wait) model.set(res, {reset: params.reset || false});
