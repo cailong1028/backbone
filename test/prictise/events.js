@@ -3,7 +3,7 @@
  */
 'use strict';
 (function(){
-	module('Backbone_events_myprictise');
+	module('events');
 	test('on and trigger', function(){
 		var Obj = function(cnt){
 			this.cnt = cnt;
@@ -23,5 +23,15 @@
 		obj.trigger('a');
 		obj.trigger('a');
 		equal(obj.cnt, 10, 'obj cnt should be 10');
+	});
+
+	test('trigger more than one events', function(){
+		var Events =  Backbone.Events.extend();
+		var event = new Events;
+		event.on('do, do2 do3', function(res, res2){
+			equal(res, 1);
+			equal(res2, 2);
+		});
+		event.trigger('do do2 do3', 1, 2);
 	});
 })();

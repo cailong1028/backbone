@@ -16,10 +16,6 @@
 })(function(root, Backbone, underscore, $){
 	var previousBackbone = root.Backbone;
 	Backbone.$ = $;
-	Backbone.noconflict = function(){
-		root.Backbone = perviousBackbone;
-		return this;
-	};
 
 	//noConflict
 	Backbone.noConflict = function(){
@@ -27,7 +23,7 @@
 		return this;
 	};
 
-	//Events
+	//Backbone Events object
 	var Events = Backbone.Events = {};
 	var eventsStripper = /\s*,\s*|\s+/;
 
@@ -49,14 +45,14 @@
 		if(eventsStripper.test(name)){
 			var names = name.split(eventsStripper);
 			for(var i = 0; i < names.length; i++){
-				registeEvents(this, names[i], callback, context);
+				this.registeEvents(this, names[i], callback, context);
 			}
 		}else{
-			registeEvents(this, name, callback, context);
+			this.registeEvents(this, name, callback, context);
 		}
 	};
 
-	var registeEvents = function(ctx, eventName, callback, context){
+	Events.registeEvents = function(ctx, eventName, callback, context){
 		var event, _events = ctx._events = ctx._events || {};
 		event = _events[eventName] = _events[eventName] || [];
 		event.push({
@@ -66,19 +62,30 @@
 		});
 	};
 
-	Events.trigger = function(name){
-		var args = arguments;
+	Events.trigger = function(eventName){
+		var args = arguments, eventNames;
 		if(args.length < 1){
 			throw new Error('argments of Backbone Events:trigger are {name, [argument1, argument2...]}');
 		}
-		var event, _events = this._events, args = arguments, event_args = Array.prototype.slice.call(arguments, 1);
+		var event, _events = this._events, event_args = Array.prototype.slice.call(arguments, 1);
 		if(!_events) return;
-		event = _events[name];
-		if(!event) return;
-		for(var i = 0; i < event.length; i++){
-			var eventChild = event[i];
-			eventChild.callback.apply(eventChild.context || eventChild.ctx, event_args);
+		eventNames = eventName.split(eventsStripper);
+		for(var i = 0; i < eventNames.length; i++){
+			event = _events[eventNames[i]];
+			if(!event) continue;
+			for(var j = 0; j < event.length; j++){
+				var eventChild = event[j];
+				eventChild.callback.apply(eventChild.context || eventChild.ctx, event_args);
+			}
 		}
+	};
+
+	Events.extend = function(options){
+		var EventsSubClass = function(){
+
+		};
+		_.extend(EventsSubClass.prototype, Events, options || {});
+		return EventsSubClass;
 	};
 
 	//Backbone Model
@@ -162,9 +169,11 @@
 	//Backbone Collection
 	//------------------------------------------------------
 	var Collection = Backbone.Collection = function(models, options){
+		this.options = options || {};
+		_.extend(this.options, {reset: false, remove: false});
 		this.cid = _.uniqueId(this.cidPrefix);
-		if(!!models) this.set(models);
-		this.initialize();
+		this.initialize.apply(this, arguments);
+		this.reset(models, this.options);
 	};
 
 	_.extend(Collection.prototype, Events, {
@@ -176,30 +185,83 @@
 		parse: function(models){
 			return models;
 		},
-		set: function(datas){
-			var model = new this.model;
-			if(!datas) return this;
-			datas = this.parse(datas);
-			if(!_.isArray(datas)) throw new Error('Collection models should be array');
-			for(var i = 0; i < datas.length; i++){
-				if(!model._validate(datas[i]) && this.strict){
-					return false;
+		set: function(models, options){
+			options = _.extend({}, options || {});
+			var parse = options.parse || this.parse;
+			if(!models) return this;
+			if(parse && _.isFunction(parse)) models = parse.call(this, models, options);
+			if(!_.isArray(models)) models = [models];
+			//简单事务
+			var toAdd = [], toRemove = [], triggerEvents = {};
+			for(var i = 0; i < models.length; i++){
+				var model = models[i];
+				var existing = this.get(model);
+				if(!(model = this._prepareModel(model))) throw new Error(model.validateError);
+				if(existing){//替换
+					if(existing === model){
+						toRemove.push(existing);
+						toAdd.push(model);
+					}
+				}else{
+					toAdd.push(model);
 				}
 			}
-			this.models = datas;
-			this.trigger('change', '');
+			if(options.reset && !options.remove){
+				toRemove = _.clone(this.models);
+			}
+			for(var i = 0; i < toRemove.length; i++){
+				var model = toRemove[i];
+				delete this._byId[model.cid];
+				if(model.get(model.idAttribute)) delete this._byId[model.get(model.idAttribute)];
+				//delete model;
+				this.models.remove(model);
+			}
+			if(toRemove.length > 0){
+				triggerEvents.remove = toRemove;
+			}
+			if(!options.remove){
+				this.models = this.models.concat(toAdd);
+				for (var i = 0; i < toAdd.length; i++) {
+					var model = toAdd[i];
+					this._byId[model.cid] = model;
+					if (model.get(model.idAttribute)) this._byId[model.idAttribute] = model;
+				}
+				triggerEvents.add = toAdd;
+			}
+			if(!options.silent) {
+				//this.trigger(_.keys(triggerEvents).join(' '), triggerEvents);
+				for(var key in triggerEvents){
+					this.trigger(key, triggerEvents[key]);
+				}
+			}
 		},
-		//TODO
-		get: function(){
-
+		reset: function(models, options){
+			options = options ? _.clone(options) : {};
+			options.previousModels = this.models;
+			this.models = [];
+			this._byId = {};
+			this.add(models || [], options);
+		},
+		at: function(index){
+			return index > -1 && index < this.models.length ? this.models[index] : void 0;
+		},
+		get: function(model){
+			var cid = model.cid, id = this._isModel(model) ? model.get(this.idAttribute) : model.id;
+			return this._byId[id] || this._byId[cid] || void 0;
 		},
 		toJSON: function(){
 			return this.models.map(function(model){return model.toJSON();});
 		},
-		add: function(){
-
+		add: function(models, options){
+			this.set(models, {reset: false, remove: false})
 		},
-		remove: function(){
+		remove: function(models, options){
+			this.set(models, {reset: false, remove: true});
+		},
+		push: function(models){
+			this.set(models);
+		},
+		pop: function(){
 
 		},
 		shift: function(){
@@ -210,11 +272,22 @@
 		},
 		fetch: function(options){
 			return Backbone.sync('GET', this, options);
+		},
+		_isModel: function(obj){
+			return obj instanceof Model;
+		},
+		_prepareModel: function(model, options){
+			model = this._isModel(model) ? model : new this.model(model, options)
+			if(!model._validate(model.attributes)){
+				this.trigger('invalidate', model.validateError);
+				return false;
+			}
+			return model;
 		}
 	});
 
 	//Collection, Model, Router, View extend
-	1
+	//------------------------------------------------------
 	var extend = function(protoProps){
 		protoProps = protoProps || {};
 		var parent = this;
@@ -276,7 +349,7 @@
 		}
 		params.success = function(res){
 			res = res || {};
-			if(params.wait || params.reset) model.set(res);
+			if(params.wait) model.set(res, {reset: params.reset || false});
 			model.trigger('sync');
 		};
 		if(!options.url) params.url = _.result(model, 'url') || urlError();
@@ -290,7 +363,26 @@
 	var urlError = function(){
 		throw new Error('url needed');
 	};
-
+	/*数组根据value的remove方法(使用5个知识点)
+	 1: 要求参数中可以有多个要删除的指定的obj
+	 2: 删除数组中重复的obj,而不仅仅是第一个
+	 3: 0 == false;
+	 4: 数组和string的indexOf方法
+	 5: 使用splice(index, 1) 来删除指定位置的obj
+	 6: 使用splice时需要注意,不要将替换的obj以数组作为参数使用
+	 如下: a.splice(index, lengthCount, [a1, a2...]);
+	 而应该使用如下写法: a.splice(index, lengthCount, a1, a2...)
+	 或者: Array.prototype.splice.apply(context, [index, lengthCount, a1, a2...]);
+	 综上所述数组中根据属性obj,在数组中移除obj的方式如下代码如下*/
+	Array.prototype.remove = function(){
+		var argLen = arguments.length, index;
+		while(argLen && this.length){
+			var oneRemove = arguments[--argLen];
+			while((index = this.indexOf(oneRemove)) !== -1){
+				this.splice(index, 1);
+			}
+		}
+	};
 	//TODO
 	Dtd.extend = Collection.extend = Model.extend = extend;
 
