@@ -93,7 +93,7 @@
 	var Model = Backbone.Model = function(attributes, options){
 		attributes = attributes || {};
 		this.options = options = options || {};
-		this.attributes = this.attributes || {};
+		this.attributes = this.attributes || this.defaults || {};
 		this.cid = _.uniqueId(this.cidPrefix);
 		this.set(attributes, options);
 		this.changed = {};
@@ -101,6 +101,7 @@
 	};
 
 	_.extend(Model.prototype, Events, {
+		defaults: {},
 		cidPrefix: 'c',
 		idAttribute: 'id',
 		initialize:function(){
@@ -169,6 +170,7 @@
 	//Backbone Collection
 	//------------------------------------------------------
 	var Collection = Backbone.Collection = function(models, options){
+		this.length = 0;
 		this.options = options || {};
 		_.extend(this.options, {reset: false, remove: false});
 		this.cid = _.uniqueId(this.cidPrefix);
@@ -212,6 +214,7 @@
 				if(model.get(model.idAttribute)) delete this._byId[model.get(model.idAttribute)];
 				//delete model;
 				this.models.remove(model);
+				this.length --;
 			}
 			if(toRemove.length > 0){
 				triggerEvents.remove = toRemove;
@@ -221,7 +224,8 @@
 					var oneAdd = toAdd[i];
 					this._byId[oneAdd.cid] = oneAdd;
 					if (oneAdd.get(oneAdd.idAttribute)) this._byId[oneAdd.idAttribute] = oneAdd;
-					this.models.push(oneAdd);
+					options.addToHead ? this.models.unshift(oneAdd) : this.models.push(oneAdd);
+					this.length ++;
 				}
 				triggerEvents.add = toAdd;
 			}
@@ -231,6 +235,7 @@
 					this.trigger(key, triggerEvents[key]);
 				}
 			}
+			return this;
 		},
 		reset: function(models, options){
 			options = options ? _.clone(options) : {};
@@ -238,6 +243,7 @@
 			this.models = [];
 			this._byId = {};
 			this.add(models || [], options);
+			return this;
 		},
 		at: function(index){
 			return index > -1 && index < this.models.length ? this.models[index] : void 0;
@@ -250,22 +256,30 @@
 			return this.models.map(function(model){return model.toJSON();});
 		},
 		add: function(models, options){
-			this.set(models, {reset: false, remove: false})
+			this.set(models, _.extend({reset: false, remove: false}, options));
+			return this;
 		},
 		remove: function(models, options){
 			this.set(models, {reset: false, remove: true});
 		},
 		push: function(models){
-			this.set(models);
+			this.add(models);
+			return this;
 		},
 		pop: function(){
-
+			if(this.models.length < 1) return void 0;
+			var lastModel = this.at(this.models.length - 1);
+			this.remove(lastModel);
+			return lastModel;
 		},
 		shift: function(){
-
+			if(this.models.length < 1) return void 0;
+			var firstModel = this.at(0);
+			this.remove(firstModel);
+			return firstModel;
 		},
-		unshift: function(){
-
+		unshift: function(models){
+			return this.add(models, {addToHead: true});
 		},
 		fetch: function(options){
 			return Backbone.sync('GET', this, options);
@@ -281,6 +295,32 @@
 			}
 			return model;
 		}
+	});
+
+	//Backbone View
+	//------------------------------------------------------
+	var View = Backbone.View = function(options){
+		//功能如下, 绘制页面, 加载数据(Model, Collection)
+		_.extend(this, _.pick(options, viewOptions));
+		this.initialize.call(this, arguments);
+	};
+
+	var viewOptions = ['model', 'collection', 'el'];
+
+	_.extend(View.prototype, Events, {
+		initialize: function(){},
+		_template: _.template(this.template || ''),
+		serialize: function(){
+			return {};
+		},
+		beforeRender: function(){},
+		render: function(){
+			this.beforeRender();
+			this._template();
+			//绘制模板
+			this.afterRender(this.serialize());
+		},
+		afterRender: function(){}
 	});
 
 	//Collection, Model, Router, View extend
@@ -383,7 +423,7 @@
 		}
 	};
 	//TODO
-	Dtd.extend = Collection.extend = Model.extend = extend;
+	Dtd.extend = View.extend = Collection.extend = Model.extend = extend;
 
 	return Backbone;
 });
