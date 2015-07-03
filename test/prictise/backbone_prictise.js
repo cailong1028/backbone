@@ -301,26 +301,106 @@
 	//------------------------------------------------------
 	var View = Backbone.View = function(options){
 		//功能如下, 绘制页面, 加载数据(Model, Collection)
-		_.extend(this, _.pick(options, viewOptions));
+		_.extend(this, _.pick(options, this.viewOptions));//此处pick方法用的好
+		this.setElement();
+		this.__template = this._template(_.result(this, 'template') || '');
 		this.initialize.call(this, arguments);
 	};
 
-	var viewOptions = ['model', 'collection', 'el'];
-
 	_.extend(View.prototype, Events, {
+		viewOptions: ['model', 'collection', 'el', '$el', 'tagName', 'className', 'templateSettings'],
+		template: '',
+		templateSettings: {},
 		initialize: function(){},
-		_template: _.template(this.template || ''),
 		serialize: function(){
 			return {};
 		},
 		beforeRender: function(){},
 		render: function(){
 			this.beforeRender();
-			this._template();
-			//绘制模板
-			this.afterRender(this.serialize());
+			//使用underscore 绘制模板
+			//this.$el.html(_.template(_.result(this, 'template') || '')(this.serialize()));
+			//使用自定义的_template方法 绘制模板
+			//TODO 调用文件,直接调用的形式调用,只能调用js文件
+			this.$el.html(this.__template(this.serialize()));
+			this.afterRender();
+			return this;
 		},
-		afterRender: function(){}
+		afterRender: function(){},
+		$: function(selector){
+			return this.$el.find(selector);
+		},
+		_setElement: function(el){
+			this.$el = el instanceof Backbone.$ ? el :  Backbone.$(el);
+			this.el = this.$el[0];
+		},
+		setElement: function(){
+			var el = document.createElement(this.tagName? _.result(this, 'tagName') : 'div');
+			this.className ? el.setAttribute('class', _.result(this, 'className')) : void 0;
+			this._setElement(el);
+		},
+		_template: function(template){
+			//TODO
+			//1:	类handlebars注册方法
+			//2:	使用参数
+			//3:	特殊标签的使用,比如handlebars的if, each等
+			//4:	加载模板文件,并从模板中读取模板string,使template方法能调用
+			//5:	添加最后一个的正则式{{- }} 的用法和定义
+
+			//TODO 上面TODO定义的第四条的任务细解
+			//查找template的步骤如下:
+			//1:	查找js文件 //生成的目录位置, 前端加载方式, 不需要依赖node
+			//2:	查找源文件 //并通过_template方法生成js返回字符串的js文件, 前端加载方式,不需要依赖node
+			//3:	字符串 //如果前两者都查找不到,以字符串的形式对待
+			//首先需要解析文件名,分隔符为 斜杠号,空格,冒号
+
+			//方式1 , 考虑amd模式(包名)和普通加载模式(文件路径)
+			if(typeof define === 'function' && define.amd){
+				require();
+			}else{
+
+			}
+
+			var noMatch = /(.)^/g;
+			var defultSettings = {
+				escape      : /<%-([\s\S]+?)%>/g,
+				interpolate : /<%=([\s\S]+?)%>/g,
+				evaluate    : /<%([\s\S]+?)%>/g
+			};
+			//动态解析表达式 不使用_.defaults而使用_.extend的原因: 默认确定好settings中属性的顺序
+			var settings = this.templateSettings = _.extend(defultSettings, this.templateSettings || {});
+			//对文件的解析方式, 对字符串的解析
+			//1: 获取对象, 2: 执行体; 3:
+			//加上reg结尾判断-->$的原因是,没有任何一个匹配的时候,确保replace的第二个方法参数的执行,这是在underscore中的
+			//做法,但在新的方法_template中没有必要,因为完全使用替换的方式实现
+			var reg = new RegExp([
+				(settings.escape || noMatch).source,
+				(settings.interpolate || noMatch).source,
+				(settings.evaluate || noMatch).source
+			].join('|')+'|$', 'g');
+			var source = template.replace(reg, function(match, escape, interpolate, evaluate, offset, originStr){
+				if(escape){
+					//TODO 用法?
+				}else if(interpolate){
+					return '\'\n+(typeof '+interpolate+' === \'undefined\' ? \'\' : '+interpolate+')+\n\'';
+				}else if(evaluate){
+					//TODO 拆分字符串, 并调用方法库
+					return '\'\n+'+evaluate+'+\n\'';
+				}
+				return '';
+			});
+			var functionBody = 'var _t, __p=\'\';\n' +
+				'with(obj || {}){\n' +
+				'__p+=\''+source+'\'\n' +
+				'}\n' +
+				'return __p;';
+			var template = new Function('obj', functionBody);
+			return template;
+		},
+		_templateDefineName: function(path){
+			var reg = /a/g;
+			return '';
+		}
 	});
 
 	//Collection, Model, Router, View extend

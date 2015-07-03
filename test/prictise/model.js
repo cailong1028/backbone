@@ -2,7 +2,7 @@
  * Created by cailong on 2015/6/2.
  */
 (function(){
-	module('Model test');
+	module('Backbone Model');
 	var Model1, model1;
 	test('simple Backbone Model set and get', function(){
 		model1 = new Backbone.Model({id: 1, name: 'a'});

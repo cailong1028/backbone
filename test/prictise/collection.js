@@ -2,7 +2,7 @@
  * Created by cailong on 2015/6/16.
  */
 (function(){
-	module('Backbone collection');
+	module('Backbone Collection');
 
 	var Model = Backbone.Model.extend({});
 	var Collection = Backbone.Collection.extend({

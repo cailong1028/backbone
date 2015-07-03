@@ -3,7 +3,7 @@
  */
 'use strict';
 (function(){
-	module('events');
+	module('Backbone Events');
 	test('on and trigger', function(){
 		var Obj = function(cnt){
 			this.cnt = cnt;
