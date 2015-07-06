@@ -1,7 +1,7 @@
 /**
  * Created by cailong on 2015/6/15.
  */
-(function(){
+require(['backbone'], function(/*Backbone*/){
 	module('dtd');
 
 	var dtdFunc = function(obj){
@@ -30,4 +30,4 @@
 			equal(foo.i, 5, 'foo.i should be 5 after dtd resolve');
 		}]);
 	});
-})();
+});

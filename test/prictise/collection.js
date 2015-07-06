@@ -1,7 +1,9 @@
 /**
  * Created by cailong on 2015/6/16.
  */
-(function(){
+require([
+	'backbone'
+], function(/*Backbone*/){//Backbone执行之后默认会添加一个全局Backbone对象,不需要在此处定义amd形式的参数变量, 同时Backbone依赖于Underscore,可以在此处直接使用_变量
 	module('Backbone Collection');
 
 	var Model = Backbone.Model.extend({});
@@ -258,4 +260,4 @@
 			equal(col.models.length, 2, 'collection models.length should be 2');
 		});
 	});
-})();
+});

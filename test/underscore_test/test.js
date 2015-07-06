@@ -2,7 +2,9 @@
  * Created by cailong on 2015/5/27.
  */
 'use strict';
-(function(){
+define([
+	'underscore'
+], function(_){
 	module('undersocre');
 	test('bindAll', function(){
 		var a = {name: 'aName'}, b = {
@@ -15,4 +17,4 @@
 		a.getName = b.getName;
 		equal(a.getName(), 'bName', 'ctx be bound');
 	});
-})();
+});

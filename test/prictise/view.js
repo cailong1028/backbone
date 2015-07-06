@@ -1,7 +1,9 @@
 /**
  * Created by cailong on 2015/6/29.
  */
-(function(){
+require([
+	'backbone'
+], function(/*Backbone*/){
 	module('Backbone View');
 
 	var Model = Backbone.Model.extend({
@@ -136,4 +138,4 @@
 		var view = new View2;
 		equal(i, 1, '模板中的执行代码解析, 通过执行函数, i++ 值为1');
 	});
-})();
+});

@@ -2,7 +2,9 @@
  * Created by cailong on 2015/5/28.
  */
 'use strict';
-(function(){
+require([
+	'backbone'
+], function(/*Backbone*/){
 	module('Backbone Events');
 	test('on and trigger', function(){
 		var Obj = function(cnt){
@@ -34,4 +36,4 @@
 		});
 		event.trigger('do do2 do3', 1, 2);
 	});
-})();
+});

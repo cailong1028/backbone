@@ -1,7 +1,7 @@
 /**
  * Created by cailong on 2015/6/18.
  */
-(function(){
+require(['jquery'], function(/*$*/){//需要定义jquery,因为此处没有依赖于jquery的module
 	module('jsonp');
 	asyncTest('跨域测试', function(){
 		$.ajax({
@@ -18,4 +18,4 @@
 			equal(res.length, 3, 'return length should be 3');
 		});
 	});
-})();
+});

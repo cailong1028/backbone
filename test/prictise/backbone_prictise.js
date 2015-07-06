@@ -14,6 +14,7 @@
 		root.Backbone = factory(root, {}, _, (root.jquery || root.Zepto || root.$));
 	}
 })(function(root, Backbone, underscore, $){
+	var amdSupport = typeof define === 'function' && define.amd;
 	var previousBackbone = root.Backbone;
 	Backbone.$ = $;
 
@@ -303,7 +304,7 @@
 		//功能如下, 绘制页面, 加载数据(Model, Collection)
 		_.extend(this, _.pick(options, this.viewOptions));//此处pick方法用的好
 		this.setElement();
-		this.__template = this._template(_.result(this, 'template') || '');
+		this.__template = this._template();
 		this.initialize.call(this, arguments);
 	};
 
@@ -339,27 +340,8 @@
 			this.className ? el.setAttribute('class', _.result(this, 'className')) : void 0;
 			this._setElement(el);
 		},
-		_template: function(template){
-			//TODO
-			//1:	类handlebars注册方法
-			//2:	使用参数
-			//3:	特殊标签的使用,比如handlebars的if, each等
-			//4:	加载模板文件,并从模板中读取模板string,使template方法能调用
-			//5:	添加最后一个的正则式{{- }} 的用法和定义
-
-			//TODO 上面TODO定义的第四条的任务细解
-			//查找template的步骤如下:
-			//1:	查找js文件 //生成的目录位置, 前端加载方式, 不需要依赖node
-			//2:	查找源文件 //并通过_template方法生成js返回字符串的js文件, 前端加载方式,不需要依赖node
-			//3:	字符串 //如果前两者都查找不到,以字符串的形式对待
-			//首先需要解析文件名,分隔符为 斜杠号,空格,冒号
-
-			//方式1 , 考虑amd模式(包名)和普通加载模式(文件路径)
-			if(typeof define === 'function' && define.amd){
-				require();
-			}else{
-
-			}
+		_template: function(){
+			var template = this._templateDefineName();
 
 			var noMatch = /(.)^/g;
 			var defultSettings = {
@@ -397,9 +379,32 @@
 			var template = new Function('obj', functionBody);
 			return template;
 		},
-		_templateDefineName: function(path){
-			var reg = /a/g;
-			return '';
+		_templateDefineName: function(){
+			//TODO
+			//1:	类handlebars注册方法
+			//2:	使用参数
+			//3:	特殊标签的使用,比如handlebars的if, each等
+			//4:	加载模板文件,并从模板中读取模板string,使template方法能调用
+			//5:	添加最后一个的正则式{{- }} 的用法和定义
+
+			//TODO 上面TODO定义的第四条的任务细解
+			//查找template的步骤如下:
+			//1:	查找js文件 //生成的目录位置, 前端加载方式, 不需要依赖node
+			//2:	查找源文件 //并通过_template方法生成js返回字符串的js文件, 前端加载方式,不需要依赖node
+			//3:	字符串 //如果前两者都查找不到,以字符串的形式对待
+			//首先需要解析文件名,分隔符为 斜杠号,空格,冒号
+
+			//方式1 , 考虑amd模式(包名)和普通加载模式(文件路径)
+			var template = _.result(this, 'template') || '';
+			return template;
+			/*if(amdSupport){
+
+				require();//失败,则加载原模板字符串文件,生成之后再
+				//
+			}else{
+				//根据路径加载文件
+
+			}*/
 		}
 	});
 

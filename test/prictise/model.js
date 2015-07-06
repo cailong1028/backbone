@@ -1,7 +1,9 @@
 /**
  * Created by cailong on 2015/6/2.
  */
-(function(){
+require([
+	'backbone'
+], function(/*Backbone*/){
 	module('Backbone Model');
 	var Model1, model1;
 	test('simple Backbone Model set and get', function(){
@@ -102,4 +104,4 @@
 			equal(model.get('deleted'), true);
 		});
 	});
-})();
+});

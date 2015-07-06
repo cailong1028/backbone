@@ -17,6 +17,7 @@
   "devDependencies": {
     "backbone.marionette": "^2.4.2",
     "moment-timezone": "^0.4.0",
+    "requirejs": "^2.1.18",
     "underscore": "^1.8.3"
   }
 }

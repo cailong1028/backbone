@@ -1,5 +1,5 @@
 ﻿'use strict';
-(function(){
+require([], function(){
     module('js constructor');
 	test('类的prototype包含constructor属性', function(){
 		/**
@@ -62,4 +62,4 @@
 		ok(a3.constructor === A);
 	});
 }    
-)();
+);
