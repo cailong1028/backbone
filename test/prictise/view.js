@@ -138,4 +138,24 @@ require([
 		var view = new View2;
 		equal(i, 1, '模板中的执行代码解析, 通过执行函数, i++ 值为1');
 	});
+
+	test('使用html模板', function(){
+		var View2 = Backbone.View.extend({
+			model: model,
+			template: 'test',
+			templateSettings: {
+				evaluate    : /{{([\s\S]+?)}}/g,
+				interpolate : /{{=([\s\S]+?)}}/g,
+				escape      : /{{-([\s\S]+?)}}/g
+			},
+			serialize: function(){
+				return this.model.toJSON();
+			},
+			initialize: function(){
+				this.render();
+			}
+		});
+		var view = new View2;
+		equal(view.$('h2').html(), 'Zhang', 'html模板获取值');
+	});
 });

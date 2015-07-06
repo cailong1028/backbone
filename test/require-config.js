@@ -1,7 +1,7 @@
 /**
  * Created by cailong on 2015/7/6.
  */
-/*global require*/
+/*global define, require*/
 'use strict';
 require.config({
 	baseUrl: './',

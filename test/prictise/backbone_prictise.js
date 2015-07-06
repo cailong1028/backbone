@@ -341,45 +341,45 @@
 			this._setElement(el);
 		},
 		_template: function(){
-			var template = this._templateDefineName();
-
-			var noMatch = /(.)^/g;
-			var defultSettings = {
-				escape      : /<%-([\s\S]+?)%>/g,
-				interpolate : /<%=([\s\S]+?)%>/g,
-				evaluate    : /<%([\s\S]+?)%>/g
-			};
-			//动态解析表达式 不使用_.defaults而使用_.extend的原因: 默认确定好settings中属性的顺序
-			var settings = this.templateSettings = _.extend(defultSettings, this.templateSettings || {});
-			//对文件的解析方式, 对字符串的解析
-			//1: 获取对象, 2: 执行体; 3:
-			//加上reg结尾判断-->$的原因是,没有任何一个匹配的时候,确保replace的第二个方法参数的执行,这是在underscore中的
-			//做法,但在新的方法_template中没有必要,因为完全使用替换的方式实现
-			var reg = new RegExp([
-				(settings.escape || noMatch).source,
-				(settings.interpolate || noMatch).source,
-				(settings.evaluate || noMatch).source
-			].join('|')+'|$', 'g');
-			var source = template.replace(reg, function(match, escape, interpolate, evaluate, offset, originStr){
-				if(escape){
-					//TODO 用法?
-				}else if(interpolate){
-					return '\'\n+(typeof '+interpolate+' === \'undefined\' ? \'\' : '+interpolate+')+\n\'';
-				}else if(evaluate){
-					//TODO 拆分字符串, 并调用方法库
-					return '\'\n+'+evaluate+'+\n\'';
-				}
-				return '';
-			});
-			var functionBody = 'var _t, __p=\'\';\n' +
-				'with(obj || {}){\n' +
-				'__p+=\''+source+'\'\n' +
-				'}\n' +
-				'return __p;';
-			var template = new Function('obj', functionBody);
-			return template;
+			this._templateDefineName(_.clone(_.result(this, 'template') || '')).done(_.bind(function(){
+				var noMatch = /(.)^/g;
+				var defultSettings = {
+					escape      : /<%-([\s\S]+?)%>/g,
+					interpolate : /<%=([\s\S]+?)%>/g,
+					evaluate    : /<%([\s\S]+?)%>/g
+				};
+				//动态解析表达式 不使用_.defaults而使用_.extend的原因: 默认确定好settings中属性的顺序
+				var settings = this.templateSettings = _.extend(defultSettings, this.templateSettings || {});
+				//对文件的解析方式, 对字符串的解析
+				//1: 获取对象, 2: 执行体; 3:
+				//加上reg结尾判断-->$的原因是,没有任何一个匹配的时候,确保replace的第二个方法参数的执行,这是在underscore中的
+				//做法,但在新的方法_template中没有必要,因为完全使用替换的方式实现
+				var reg = new RegExp([
+					(settings.escape || noMatch).source,
+					(settings.interpolate || noMatch).source,
+					(settings.evaluate || noMatch).source
+				].join('|')+'|$', 'g');
+				var source = template.replace(reg, function(match, escape, interpolate, evaluate, offset, originStr){
+					if(escape){
+						//TODO 用法?
+					}else if(interpolate){
+						return '\'\n+(typeof '+interpolate+' === \'undefined\' ? \'\' : '+interpolate+')+\n\'';
+					}else if(evaluate){
+						//TODO 拆分字符串, 并调用方法库
+						return '\'\n+'+evaluate+'+\n\'';
+					}
+					return '';
+				});
+				var functionBody = 'var _t, __p=\'\';\n' +
+					'with(obj || {}){\n' +
+					'__p+=\''+source+'\'\n' +
+					'}\n' +
+					'return __p;';
+				var template = new Function('obj', functionBody);
+				return template;
+			}, this));
 		},
-		_templateDefineName: function(){
+		_templateDefineName: function(template){
 			//TODO
 			//1:	类handlebars注册方法
 			//2:	使用参数
@@ -395,16 +395,31 @@
 			//首先需要解析文件名,分隔符为 斜杠号,空格,冒号
 
 			//方式1 , 考虑amd模式(包名)和普通加载模式(文件路径)
-			var template = _.result(this, 'template') || '';
-			return template;
-			/*if(amdSupport){
-
-				require();//失败,则加载原模板字符串文件,生成之后再
-				//
+			var dtd = new Backbone.Dtd;
+			//var template = _.result(this, 'template') || '';
+			if(template === ''){
+				setTimeout(function(){
+					dtd.resolve('')
+				}, 0);
+				return dtd.promise();
+			}
+			if(amdSupport){
+				var path = '.template/'+template;
+				require([path], function(pathModule){
+					var moduleTemplate = pathModule();
+					if(moduleTemplate){
+						dtd.resolve(moduleTemplate);
+					}else{
+						//先查找html模板,如果有,生称js,再返回方式str, 如果没有直接以字符串方式处理
+						dtd.resolve(template);
+					}
+				});
+				//template = require('.template/'+template)();//失败,则加载原模板字符串文件,生成之后再
 			}else{
 				//根据路径加载文件
 
-			}*/
+			}
+			return dtd.promise();
 		}
 	});
 
@@ -434,7 +449,7 @@
 	_.extend(Dtd.prototype, Events, {
 		resolve: function(){
 			for(var i = 0; i< this.fireChain.length; i++){
-				this.fireChain[i]();
+				this.fireChain[i](arguments);
 			}
 		},
 		reject: function(){
