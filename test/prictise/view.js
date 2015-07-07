@@ -139,7 +139,7 @@ require([
 		equal(i, 1, '模板中的执行代码解析, 通过执行函数, i++ 值为1');
 	});
 
-	test('使用html模板', function(){
+	asyncTest('使用html模板', function(){
 		var View2 = Backbone.View.extend({
 			model: model,
 			template: 'test',
@@ -152,10 +152,25 @@ require([
 				return this.model.toJSON();
 			},
 			initialize: function(){
-				this.render();
+				this.render().done(function(){
+					QUnit.start();
+					equal(view.$('h2').html(), 'Zhang', 'html模板获取值');
+				});
 			}
 		});
 		var view = new View2;
-		equal(view.$('h2').html(), 'Zhang', 'html模板获取值');
+	});
+
+	asyncTest('ajax 获取本地的模板文件', function(){
+		$.ajax({
+			type: 'GET',
+			url: 'template/test.hbs',
+			dataType: 'text',
+			success: function(data){
+				QUnit.start();
+				console.log(data);
+				equal(1, 1);
+			}
+		});
 	});
 });

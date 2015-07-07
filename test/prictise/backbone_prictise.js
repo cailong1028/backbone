@@ -304,7 +304,7 @@
 		//功能如下, 绘制页面, 加载数据(Model, Collection)
 		_.extend(this, _.pick(options, this.viewOptions));//此处pick方法用的好
 		this.setElement();
-		this.__template = this._template();
+		//this.__template = this._template();
 		this.initialize.call(this, arguments);
 	};
 
@@ -318,14 +318,23 @@
 		},
 		beforeRender: function(){},
 		render: function(){
+			var dtd = new Dtd;
 			this.beforeRender();
 			//使用underscore 绘制模板
 			//this.$el.html(_.template(_.result(this, 'template') || '')(this.serialize()));
 			//使用自定义的_template方法 绘制模板
 			//TODO 调用文件,直接调用的形式调用,只能调用js文件
-			this.$el.html(this.__template(this.serialize()));
-			this.afterRender();
-			return this;
+			this._template().done(_.bind(function(tempFunc){
+				if(!_.isFunction(tempFunc)){
+					//TODO 非函数方式的处理方式
+					dtd.resolve();
+					return;
+				}
+				this.$el.html(tempFunc.call(this, this.serialize()));
+				this.afterRender();
+				dtd.resolve();
+			}, this));
+			return dtd.promise();
 		},
 		afterRender: function(){},
 		$: function(selector){
@@ -341,7 +350,9 @@
 			this._setElement(el);
 		},
 		_template: function(){
-			this._templateDefineName(_.clone(_.result(this, 'template') || '')).done(_.bind(function(){
+			var dtd = new Dtd;
+			var templateClone = _.clone(_.result(this, 'template') || '');
+			this._templateDefineName(templateClone).done(_.bind(function(tempStr){
 				var noMatch = /(.)^/g;
 				var defultSettings = {
 					escape      : /<%-([\s\S]+?)%>/g,
@@ -359,7 +370,7 @@
 					(settings.interpolate || noMatch).source,
 					(settings.evaluate || noMatch).source
 				].join('|')+'|$', 'g');
-				var source = template.replace(reg, function(match, escape, interpolate, evaluate, offset, originStr){
+				var source = tempStr.replace(reg, function(match, escape, interpolate, evaluate, offset, originStr){
 					if(escape){
 						//TODO 用法?
 					}else if(interpolate){
@@ -376,8 +387,9 @@
 					'}\n' +
 					'return __p;';
 				var template = new Function('obj', functionBody);
-				return template;
+				dtd.resolve(template);
 			}, this));
+			return dtd.promise();
 		},
 		_templateDefineName: function(template){
 			//TODO
@@ -395,7 +407,8 @@
 			//首先需要解析文件名,分隔符为 斜杠号,空格,冒号
 
 			//方式1 , 考虑amd模式(包名)和普通加载模式(文件路径)
-			var dtd = new Backbone.Dtd;
+			var dtd = new Dtd,
+				htmlReg = /<|\/>|/g;
 			//var template = _.result(this, 'template') || '';
 			if(template === ''){
 				setTimeout(function(){
@@ -403,22 +416,34 @@
 				}, 0);
 				return dtd.promise();
 			}
+			//如果判断为html字符串
+			if(htmlReg.test(template)){
+				//生成js, 或者define一个
+
+			}
+			//路径,则查找define的对象
 			if(amdSupport){
 				var path = '.template/'+template;
-				require([path], function(pathModule){
-					var moduleTemplate = pathModule();
-					if(moduleTemplate){
-						dtd.resolve(moduleTemplate);
-					}else{
-						//先查找html模板,如果有,生称js,再返回方式str, 如果没有直接以字符串方式处理
-						dtd.resolve(template);
-					}
-				});
+				try{
+					require([path], function(pathModule){
+						var moduleTemplate = pathModule();
+						if(moduleTemplate){
+							dtd.resolve(moduleTemplate);
+						}else{
+							dtd.resolve('');
+							throw new Error('template analyze error')
+						}
+					});
+				}catch(e){
+					//先查找html模板,如果有,生称js,再返回方式str, 如果没有直接以字符串方式处理
+					dtd.resolve(template);
+				}
 				//template = require('.template/'+template)();//失败,则加载原模板字符串文件,生成之后再
 			}else{
 				//根据路径加载文件
 
 			}
+			//require失败,则生成js
 			return dtd.promise();
 		}
 	});
@@ -447,9 +472,20 @@
 	};
 
 	_.extend(Dtd.prototype, Events, {
+		//定义resolve方法触发done内执行的fireChain的 ctx 为arguments的最后一个参数,如果arguments.length为0或1,则默认ctx为this
 		resolve: function(){
+			var argLen = arguments.length;
+			var ctx = this,
+				args = arguments;
+			/*if(argLen === 1) {
+				args = arguments[0];
+			}else */
+			if(argLen > 1){
+				ctx = arguments[argLen-1];
+				args = arguments.slice(argLen-1, argLen);
+			}
 			for(var i = 0; i< this.fireChain.length; i++){
-				this.fireChain[i](arguments);
+				this.fireChain[i].apply(ctx, args);
 			}
 		},
 		reject: function(){
