@@ -18,7 +18,7 @@ require([
 		tagName: 'div',
 		className: 'classA classB',
 		initialize: function(){
-			this.render();
+			//this.render();
 		},
 		serialize: function(){
 			return model.toJSON();
@@ -28,20 +28,29 @@ require([
 		}
 	});
 
-	test('new a view', function(){
+	asyncTest('new a view', function(){
 		var view = new View();
-		ok(view instanceof  Backbone.View, 'new a view which type is Backbone.View');
-		equal(view.$el.find('h1').html(), 'area', '通过view el对象获得document');
+		view.render().done(function(){
+			QUnit.start();
+			ok(view instanceof  Backbone.View, 'new a view which type is Backbone.View');
+			equal(view.$el.find('h1').html(), 'area', '通过view el对象获得document');
+		});
 	});
 
-	test('view.$el', function(){
+	asyncTest('view.$el', function(){
 		var view = new View();
-		equal(view.$el.find('h2').html(), 'Zhang', 'view template object name is "Zhang"');
+		view.render().done(function(){
+			QUnit.start();
+			equal(view.$el.find('h2').html(), 'Zhang', 'view template object name is "Zhang"');
+		});
 	});
 
-	test('view $', function(){
+	asyncTest('view $', function(){
 		var view = new View;
-		equal(view.$('h1').html(), 'area');
+		view.render().done(function(){
+			QUnit.start();
+			equal(view.$('h1').html(), 'area');
+		});
 	});
 
 	test('regexp exec方法和string match方法的区别', function(){
@@ -79,22 +88,24 @@ require([
 		equal(reg.exec(str).length, 4, '长度为4');
 	});
 
-	test('使用自定义模板方法_template代替underscore的模板方法', function(){
+	asyncTest('使用自定义模板方法_template代替underscore的模板方法', function(){
 		var View2 = Backbone.View.extend({
 			model: model,
-			template: '<h1>area</h1><h2>{{= name}}</h2>	',
+			template: '<h1>area</h1><h2><%= name%></h2>	',
 			serialize: function(){
 				return this.model.toJSON();
 			},
 			initialize: function(){
-				this.render();
 			}
 		});
-		var view = new View();
-		equal(view.$el.find('h2').html(), 'Zhang', '如果看到此处说明自定义的模板函数是正确的');
+		var view = new View2();
+		view.render().done(function(){
+			QUnit.start();
+			equal(view.$el.find('h2').html(), 'Zhang', '如果看到此处说明自定义的模板函数是正确的');
+		});
 	});
 
-	test('动态解析模板, 将template解析的正则式改为{{}}', function(){
+	asyncTest('动态解析模板, 将template解析的正则式改为{{}}', function(){
 		var View2 = Backbone.View.extend({
 			model: model,
 			template: '<h1>area</h1><h2>{{= name}}</h2>	',
@@ -107,14 +118,16 @@ require([
 				return this.model.toJSON();
 			},
 			initialize: function(){
-				this.render();
 			}
 		});
 		var view = new View2();
-		equal(view.$el.find('h2').html(), 'Zhang', '如果看到此处说明自定义的模板的动态解析是正确的');
+		view.render().done(function(){
+			QUnit.start();
+			equal(view.$el.find('h2').html(), 'Zhang', '如果看到此处说明自定义的模板的动态解析是正确的');
+		});
 	});
 
-	test('模板的evaluate', function(){
+	asyncTest('模板的evaluate', function(){
 		var i = 0;
 		window.myPlus = function(){
 			i++;
@@ -126,23 +139,25 @@ require([
 				evaluate    : /{{([\s\S]+?)}}/g,
 				interpolate : /{{=([\s\S]+?)}}/g,
 				escape      : /{{-([\s\S]+?)}}/g
-
 			},
 			serialize: function(){
 				return this.model.toJSON();
 			},
 			initialize: function(){
-				this.render();
 			}
 		});
 		var view = new View2;
-		equal(i, 1, '模板中的执行代码解析, 通过执行函数, i++ 值为1');
+		view.render().done(function(){
+			QUnit.start();
+			equal(i, 1, '模板中的执行代码解析, 通过执行函数, i++ 值为1');
+		});
+
 	});
 
 	asyncTest('使用html模板', function(){
 		var View2 = Backbone.View.extend({
 			model: model,
-			template: 'test',
+			template: 'template/test',
 			templateSettings: {
 				evaluate    : /{{([\s\S]+?)}}/g,
 				interpolate : /{{=([\s\S]+?)}}/g,
@@ -168,9 +183,76 @@ require([
 			dataType: 'text',
 			success: function(data){
 				QUnit.start();
-				console.log(data);
-				equal(1, 1);
+				equal(1, 1, '本地文件获取成功');
 			}
+		});
+	});
+
+	asyncTest('使用html已经生成的js模板', function(){
+		var View2 = Backbone.View.extend({
+			model: model,
+			template: 'template/test',
+			templateSettings: {
+				evaluate    : /{{([\s\S]+?)}}/g,
+				interpolate : /{{=([\s\S]+?)}}/g,
+				escape      : /{{-([\s\S]+?)}}/g
+			},
+			serialize: function(){
+				return this.model.toJSON();
+			},
+			initialize: function(){
+				this.render().done(function(){
+					QUnit.start();
+					equal(view.$('h2').html(), 'Zhang', 'html模板获取值');
+				});
+			}
+		});
+		var view = new View2;
+	});
+
+	//似乎是不对的
+	/*test('修改的虽然是this.attr, 但是当this中无此attr属性的时候,而其class的prototype中此attr是,实际上修改的是prototype中的attr属性,', function(){
+		var A = function(){
+		};
+		A.prototype = {
+			a: 'aa'
+		};
+		var a = new A;
+		(_.bind(function(){
+			this.a = 'bb';
+		}, a))();
+		var b = new A;
+		equal(b.a, 'bb', 'b.a 应该等于 bb');
+	});*/
+
+	asyncTest('文件名调用模板(在没有定义或者生成js文件的情况下)', function(){
+		var View = Backbone.View.extend({
+			model: model,
+			template: 'template/test2',
+			templateSettings: {
+				evaluate    : /{{([\s\S]+?)}}/g,
+				interpolate : /{{=([\s\S]+?)}}/g,
+				escape      : /{{-([\s\S]+?)}}/g
+			},
+			serialize: function(){
+				return this.model.toJSON();
+			},
+			initialize: function(){}
+		});
+		var view = new View();
+		view.render().done(function(){
+			QUnit.start();
+			equal(view.$('h2').html(), 'Zhang', 'html模板获取值');
+		});
+	});
+
+	asyncTest('requirejs 的 define 和 require的调用', function(){
+		define('a', [], function(){
+			return 'aaaa';
+		});
+		require(['a'], function(a){
+			QUnit.start();
+			equal(a, 'aaaa', '通过require获得define');
 		});
 	});
 });

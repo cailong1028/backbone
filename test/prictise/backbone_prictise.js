@@ -312,6 +312,13 @@
 		viewOptions: ['model', 'collection', 'el', '$el', 'tagName', 'className', 'templateSettings'],
 		template: '',
 		templateSettings: {},
+		_templateFileSuffix: '.hbs',
+		_templateDir: '.template',
+		_defultSettings: {
+			escape      : /<%-([\s\S]+?)%>/g,
+			interpolate : /<%=([\s\S]+?)%>/g,
+			evaluate    : /<%([\s\S]+?)%>/g
+		},
 		initialize: function(){},
 		serialize: function(){
 			return {};
@@ -324,6 +331,14 @@
 			//this.$el.html(_.template(_.result(this, 'template') || '')(this.serialize()));
 			//使用自定义的_template方法 绘制模板
 			//TODO 调用文件,直接调用的形式调用,只能调用js文件
+			if(this.__templateFunction__ && _.isFunction(this.__templateFunction__)){
+				setTimeout(_.bind(function(){
+					this.$el.html(this.__templateFunction__.call(this, this.serialize()));
+					this.afterRender();
+					dtd.resolve();
+				}, this), 0);
+				return dtd.promise();
+			}
 			this._template().done(_.bind(function(tempFunc){
 				if(!_.isFunction(tempFunc)){
 					//TODO 非函数方式的处理方式
@@ -352,42 +367,9 @@
 		_template: function(){
 			var dtd = new Dtd;
 			var templateClone = _.clone(_.result(this, 'template') || '');
-			this._templateDefineName(templateClone).done(_.bind(function(tempStr){
-				var noMatch = /(.)^/g;
-				var defultSettings = {
-					escape      : /<%-([\s\S]+?)%>/g,
-					interpolate : /<%=([\s\S]+?)%>/g,
-					evaluate    : /<%([\s\S]+?)%>/g
-				};
-				//动态解析表达式 不使用_.defaults而使用_.extend的原因: 默认确定好settings中属性的顺序
-				var settings = this.templateSettings = _.extend(defultSettings, this.templateSettings || {});
-				//对文件的解析方式, 对字符串的解析
-				//1: 获取对象, 2: 执行体; 3:
-				//加上reg结尾判断-->$的原因是,没有任何一个匹配的时候,确保replace的第二个方法参数的执行,这是在underscore中的
-				//做法,但在新的方法_template中没有必要,因为完全使用替换的方式实现
-				var reg = new RegExp([
-					(settings.escape || noMatch).source,
-					(settings.interpolate || noMatch).source,
-					(settings.evaluate || noMatch).source
-				].join('|')+'|$', 'g');
-				var source = tempStr.replace(reg, function(match, escape, interpolate, evaluate, offset, originStr){
-					if(escape){
-						//TODO 用法?
-					}else if(interpolate){
-						return '\'\n+(typeof '+interpolate+' === \'undefined\' ? \'\' : '+interpolate+')+\n\'';
-					}else if(evaluate){
-						//TODO 拆分字符串, 并调用方法库
-						return '\'\n+'+evaluate+'+\n\'';
-					}
-					return '';
-				});
-				var functionBody = 'var _t, __p=\'\';\n' +
-					'with(obj || {}){\n' +
-					'__p+=\''+source+'\'\n' +
-					'}\n' +
-					'return __p;';
-				var template = new Function('obj', functionBody);
-				dtd.resolve(template);
+			this._templateDefineName(templateClone).done(_.bind(function(tempFunc){
+				//dtd.resolve(this.tempFunc);
+				dtd.resolve(tempFunc);
 			}, this));
 			return dtd.promise();
 		},
@@ -407,68 +389,127 @@
 			//首先需要解析文件名,分隔符为 斜杠号,空格,冒号
 
 			//方式1 , 考虑amd模式(包名)和普通加载模式(文件路径)
-			var dtd = new Dtd,
-				htmlReg = /<|\/>|/g;
-			//var template = _.result(this, 'template') || '';
-			if(template === ''){
+			var dtd = new Dtd, htmlReg = /(<\S+>)|(<\/\S+>)/g;
+			var selfView = this;
+			//如果判断为html字符串,直接返回字符串
+			if(template === '' || htmlReg.test(template)){
 				setTimeout(function(){
-					dtd.resolve('')
+					var tempFunc = selfView.constructor.prototype.__templateFunction__ = selfView._templateFunction(template);
+					dtd.resolve(tempFunc);
 				}, 0);
 				return dtd.promise();
 			}
-			//如果判断为html字符串
-			if(htmlReg.test(template)){
-				//生成js, 或者define一个
-
-			}
-			//路径,则查找define的对象
-			if(amdSupport){
-				var path = '.template/'+template;
-				try{
-					require([path], function(pathModule){
-						var moduleTemplate = pathModule();
-						if(moduleTemplate){
-							dtd.resolve(moduleTemplate);
-						}else{
-							dtd.resolve('');
-							throw new Error('template analyze error')
+			//路径,则查找(按照普通js方式处理,没有必要区分amd模式和普通模式)
+			Backbone.$.get(template + '.js', {}, function(){}, 'text').done(function(content){
+				var tempFunc = selfView.constructor.prototype.__templateFunction__ = eval(content);
+				dtd.resolve(tempFunc);
+			}).fail(function(){
+				Backbone.$.get(template + selfView._templateFileSuffix, {}, function(){}, 'text').done(function(content){
+					var tempFunc = selfView.constructor.prototype.__templateFunction__ = selfView._templateFunction(content);
+					dtd.resolve(tempFunc);
+				}).fail(function(){
+					dtd.resolve();
+					throw  new Error('template file not found');
+				});
+			});
+			/*Backbone.$.ajax({
+				type: 'GET',
+				url: template + '.js',
+				dataType: 'text',
+				success: function (content) {
+					dtd.resolve(eval(content));
+				},
+				error: function () {
+					//生成define一个js模板,下次调用的时候,require方式就能够加载了
+					//var functionBody = 'define(\'' + selfView._templateDir + '/' + template + '\' ,[], function(){\n';
+					//获取文件文本
+					Backbone.$.ajax({
+						type: 'GET',
+						url: template + selfView._templateFileSuffix,
+						dataType: 'text',
+						success: function (content) {
+							dtd.resolve(selfView._templateFunction(content));
+						},
+						error: function () {
+							dtd.resolve();
+							throw  new Error('template file not found');
 						}
 					});
-				}catch(e){
-					//先查找html模板,如果有,生称js,再返回方式str, 如果没有直接以字符串方式处理
-					dtd.resolve(template);
 				}
-				//template = require('.template/'+template)();//失败,则加载原模板字符串文件,生成之后再
-			}else{
-				//根据路径加载文件
+			});*/
+			//require 方式处理
+			/*var pathTemplate = this._templateDir+ '/'+template;
+			require([path], function (pathModule) {
+				dtd.resolve(pathModule);
+			}, function (err) {
 
-			}
-			//require失败,则生成js
+			});*/
 			return dtd.promise();
+		},
+		_templateFunction: function(tempStr){
+			return new Function('obj', this._templateFunctionBody(tempStr));
+		},
+		_templateFunctionBody: function(tempStr){
+			var functionBody = '';
+			var noMatch = /(.)^/g;
+			//动态解析表达式 不使用_.defaults而使用_.extend的原因: 默认确定好settings中属性的顺序
+			var settings = this.templateSettings = _.extend({}, this._defultSettings, this.templateSettings);
+			//对文件的解析方式, 对字符串的解析
+			//1: 获取对象, 2: 执行体; 3:
+			//加上reg结尾判断-->$的原因是,没有任何一个匹配的时候,确保replace的第二个方法参数的执行,这是在underscore中的
+			//做法,但在新的方法_template中没有必要,因为完全使用替换的方式实现
+			var reg = new RegExp([
+				(settings.escape || noMatch).source,
+				(settings.interpolate || noMatch).source,
+				(settings.evaluate || noMatch).source
+			].join('|')+'|$', 'g');
+			var source = tempStr.replace(reg, function(match, escape, interpolate, evaluate, offset, originStr){
+				if(escape){
+					//TODO 用法?
+				}else if(interpolate){
+					return '\'\n+(typeof '+interpolate+' === \'undefined\' ? \'\' : '+interpolate+')+\n\'';
+				}else if(evaluate){
+					//TODO 拆分字符串, 并调用方法库
+					return '\'\n+'+evaluate+'+\n\'';
+				}
+				return '';
+			});
+			functionBody += 'var _t, __p=\'\';\n' +
+			'with(obj || {}){\n' +
+			'__p+=\''+source+'\'\n' +
+			'}\n' +
+			'return __p;';
+			return functionBody;
 		}
 	});
 
-	//Collection, Model, Router, View extend
+	//对象继承方法, 一个非常值得研究的方法Collection, Model, Router, View extend
 	//------------------------------------------------------
 	var extend = function(protoProps){
 		protoProps = protoProps || {};
-		var parent = this;
-		var child = function(){
-			parent.apply(this, Array.prototype.slice.call(arguments));
+		var Parent = this;
+		var Child = function(){
+			Parent.apply(this, Array.prototype.slice.call(arguments));
 		};
-		var parentInstance = new parent;
+		var parentInstance = new Parent;
 		for(var key in parentInstance){
 			if(Object.prototype.hasOwnProperty.call(parentInstance, key)) delete parentInstance[key];
 		}
-		//child.prototype = parentInstance;/*_.clone(parent.prototype)*/
-		_.extend(child.prototype = parentInstance, protoProps);//不要使用 _.extend(child.prototype, parentInstance, protoProps); 因为_.extend只会clone ownPrototype
-		return child;
+		//child.prototype = parentInstance;_.clone(parent.prototype)
+		_.extend(Child.prototype = parentInstance, protoProps);//不要使用 _.extend(child.prototype, parentInstance, protoProps); 因为_.extend只会clone ownPrototype
+		//使用_.extend(prototype, props)的方式代替prototype = props的方式, 应为prototype = props的方式, 会改变对象的constructor,
+		//但在继承的情况下只能使用Child.prototye = new Parent(), 此时就需要手动设置其constructor属性,如下
+		Child.prototype.constructor = Child;
+		//实现级联继承
+		Child.extend = extend;
+		return Child;
 	};
 
 	//Backbone Dtd object
 	//-----------------------------------------------------------
 	var Dtd = Backbone.Dtd = function(){
-		this.fireChain = [function(){}];
+		//fireChain是function数组
+		this.fireChain = [];
 	};
 
 	_.extend(Dtd.prototype, Events, {
@@ -506,9 +547,10 @@
 	});
 
 	//Backbone sync
-	Backbone.sync = function(method, model, options){
+	var sync = Backbone.sync = function(method, model, options){
 		var _default = {wait: true};
-		options = _.extend({}, options || {});
+		options = _.extend({}, options || model || method || {});
+		model = model || {};
 		//method: post, put, patch, get, delete
 		var params = {
 			dataType: 'json',
@@ -518,7 +560,7 @@
 		//例如data; model.fetch({data: {id: 'aaa'}})
 		_.extend(params, model.options, options);
 		//data 需要另外处理,因为扩展params时使用的是_.extend,不是深度clone
-		if(method === 'POST' || (params.data && (method === 'PATCH' || method === 'DELETE'))){
+		if(params.type === 'POST' || (params.data && (params.type === 'PATCH' || params.type === 'DELETE'))){
 			params.data = JSON.stringify(_.extend({}, model.toJSON(), options.data || {}));
 		}
 		_.defaults(params, _default);
