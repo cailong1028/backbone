@@ -490,7 +490,7 @@
 	//Backbone.History
 	//----------------------------------------------------------------------------------------------------
 	var History = Backbone.History = function(){
-
+		//iframe的方式保存hashchange
 	};
 
 
