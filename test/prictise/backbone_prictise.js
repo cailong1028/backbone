@@ -329,8 +329,7 @@
 			this.beforeRender();
 			//使用underscore 绘制模板
 			//this.$el.html(_.template(_.result(this, 'template') || '')(this.serialize()));
-			//使用自定义的_template方法 绘制模板
-			//TODO 调用文件,直接调用的形式调用,只能调用js文件
+			//使用自定义的_template方法 绘制模板(如果constructor中存在__templateFunction__,直接调用,如果不存在,调用模板生成)
 			if(this.__templateFunction__ && _.isFunction(this.__templateFunction__)){
 				setTimeout(_.bind(function(){
 					this.$el.html(this.__templateFunction__.call(this, this.serialize()));
@@ -374,21 +373,21 @@
 			return dtd.promise();
 		},
 		_templateDefineName: function(template){
+			//1:	模板形式调用( 以完成, 见下面的模板的加载顺序)
 			//TODO
-			//1:	类handlebars注册方法
-			//2:	使用参数
-			//3:	特殊标签的使用,比如handlebars的if, each等
-			//4:	加载模板文件,并从模板中读取模板string,使template方法能调用
+			//2:	类handlebars注册方法
+			//TODO
+			//3:	使用参数
+			//TODO
+			//4:	特殊标签的使用,比如handlebars的if, each等
+			//TODO
 			//5:	添加最后一个的正则式{{- }} 的用法和定义
 
-			//TODO 上面TODO定义的第四条的任务细解
-			//查找template的步骤如下:
-			//1:	查找js文件 //生成的目录位置, 前端加载方式, 不需要依赖node
-			//2:	查找源文件 //并通过_template方法生成js返回字符串的js文件, 前端加载方式,不需要依赖node
-			//3:	字符串 //如果前两者都查找不到,以字符串的形式对待
-			//首先需要解析文件名,分隔符为 斜杠号,空格,冒号
-
-			//方式1 , 考虑amd模式(包名)和普通加载模式(文件路径)
+			//模板的加载顺序是
+			//1:	如果判断是html字符串,直接生成js模板,将生成的js模板作为一个function属性配置到当前view对应的constructor中, 并触发dtd
+			//2:	如果判断是路径, 查找cdn中是否存在此js模板,存在则将此js模板作为一个function属性配置到当前view对应的constructor中, 并触发dtd
+			//3:  	如果判断是路径, 但是在cdn中并不存在此js模板,查找html模板,如果存在,生成对应的js模板,作为一个function属性配置到当前view对应的constructor中, 并触发dtd
+			//4: 	如果都没找到,抛出模板未找到的异常
 			var dtd = new Dtd, htmlReg = /(<\S+>)|(<\/\S+>)/g;
 			var selfView = this;
 			//如果判断为html字符串,直接返回字符串
@@ -437,13 +436,6 @@
 					});
 				}
 			});*/
-			//require 方式处理
-			/*var pathTemplate = this._templateDir+ '/'+template;
-			require([path], function (pathModule) {
-				dtd.resolve(pathModule);
-			}, function (err) {
-
-			});*/
 			return dtd.promise();
 		},
 		_templateFunction: function(tempStr){
@@ -483,7 +475,27 @@
 		}
 	});
 
-	//对象继承方法, 一个非常值得研究的方法Collection, Model, Router, View extend
+	//Backbone.Router
+	//----------------------------------------------------------------------------------------------------
+	var Router = Backbone.Router = function(options){
+		options = options || {};
+		this.initialize.apply(this, arguments);
+	};
+
+	_.extend(Router.prototype, Events, {
+		initialize: function(){}
+
+	});
+
+	//Backbone.History
+	//----------------------------------------------------------------------------------------------------
+	var History = Backbone.History = function(){
+
+	};
+
+
+
+	//对象继承方法, 一个非常值得研究的方法. Collection, Model, Router, View extend
 	//------------------------------------------------------
 	var extend = function(protoProps){
 		protoProps = protoProps || {};
@@ -495,10 +507,10 @@
 		for(var key in parentInstance){
 			if(Object.prototype.hasOwnProperty.call(parentInstance, key)) delete parentInstance[key];
 		}
-		//child.prototype = parentInstance;_.clone(parent.prototype)
 		_.extend(Child.prototype = parentInstance, protoProps);//不要使用 _.extend(child.prototype, parentInstance, protoProps); 因为_.extend只会clone ownPrototype
 		//使用_.extend(prototype, props)的方式代替prototype = props的方式, 应为prototype = props的方式, 会改变对象的constructor,
 		//但在继承的情况下只能使用Child.prototye = new Parent(), 此时就需要手动设置其constructor属性,如下
+		//这样的实现,使对象可以精确定位到他所属的类
 		Child.prototype.constructor = Child;
 		//实现级联继承
 		Child.extend = extend;
@@ -601,7 +613,7 @@
 		}
 	};
 	//TODO
-	Dtd.extend = View.extend = Collection.extend = Model.extend = extend;
+	Router.extend = Dtd.extend = View.extend = Collection.extend = Model.extend = extend;
 
 	return Backbone;
 });
