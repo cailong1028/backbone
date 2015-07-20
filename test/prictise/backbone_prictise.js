@@ -472,7 +472,7 @@
 			'}\n' +
 			'return __p;';
 			return functionBody;
-		}
+		} 
 	});
 
 	//Backbone.Router
