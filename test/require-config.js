@@ -49,6 +49,7 @@ require([
 		'prictise/events',
 		'prictise/model',
 		'prictise/collection',
-		'prictise/view'
+		'prictise/view',
+		'prictise/router_history'
 	]);
 });

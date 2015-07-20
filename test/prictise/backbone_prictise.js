@@ -472,28 +472,79 @@
 			'}\n' +
 			'return __p;';
 			return functionBody;
-		} 
+		}
 	});
 
 	//Backbone.Router
 	//----------------------------------------------------------------------------------------------------
+	//使用router和pushstate,hashchange,iframe来实现改变url,页面不刷新,同时实现页面的展示
+	/*
+	* 1: 定义router,new router, unshift到history.handlers中
+	* 2: 页面跳转history.navigate的时候, 首先改变url(replacestate, hashchane, iframe), 然后加载handler中的处理方法
+	* 3:
+	* */
 	var Router = Backbone.Router = function(options){
 		options = options || {};
+		if(options.routes) this.routes = options.routes;
+        this.addRoutes();
 		this.initialize.apply(this, arguments);
 	};
 
 	_.extend(Router.prototype, Events, {
-		initialize: function(){}
-
+		initialize: function(){},
+		//push to history handlers
+		addRoutes: function(){
+			var _keys = _.keys(_.result(this, 'routes'));
+			for(var _key; _key = _keys.pop();){
+				var _key_reg = _key instanceof RegExp ? _key : new RegExp(_key);
+				var callback = this.routes[_key];
+				_.isFunction(callback) ? void(0) : callback = this[callback];
+				history.handlers.unshift({route: _key_reg, callback: callback});
+			}
+		}
 	});
 
 	//Backbone.History
 	//----------------------------------------------------------------------------------------------------
 	var History = Backbone.History = function(){
-
+		this.handlers = [];
+		if(window){
+			this.location = window.location;
+			this.history = window.history;
+		}
 	};
 
+	_.extend(History.prototype, Events, {
+		navigate: function(url, trigger){
+			//TODO pushstate, hashchange, iframe
+			//TODO pushState的实参
+			if(this.history.pushState) this.history.pushState({}, '', url);
 
+			//触发操作
+			if(!!trigger){
+				this.loadUrl(url);
+			}
+		},
+		loadUrl: function(url){
+			var i = 0;
+			var handler, routeCallback, routeReg;
+			while(i < this.handlers.length){
+				handler = this.handlers[i];
+				routeReg = handler.route;
+				if(routeReg.test(url)){
+					routeCallback = handler.callback;
+					break;
+				}
+				i++;
+			}
+			if(!!routeCallback){
+				//TODO 参数, 通过url和routeReg 摘开
+				routeCallback();
+			}
+		}
+	});
+
+	var history = Backbone.history = new History;
 
 	//对象继承方法, 一个非常值得研究的方法. Collection, Model, Router, View extend
 	//------------------------------------------------------
